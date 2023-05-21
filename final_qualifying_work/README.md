@@ -410,6 +410,688 @@ Nginx, упомянутый на рис. 5, выступает в качеств
 В данном разделе проектирования были рассмотрены существующие подходы к решению задач автоматизации. Спроектирована архитектура веб-приложения. Рассмотрены инструменты для разработки. На основе требований к системе разработаны диаграммы последовательности. Спроектированы концептуальная, логическая и физическая модели для базы данных, интерфейс для пользователей. 
 
 
+# 1.	Разработка ГИС
+## 1.1.	Разработка базы данных
+Для создания алгоритма анализа текста необходимы названия стран, городов и их устаревшие имена. Поэтому сначала создаем базу данных PostgreSQL в pgadmin на основе физической модели, спроектированной ранее. Создание таблиц начинается с независимых, которые не имеют внешних ключей, к зависимым (Листинг 1).
+
+Листинг 1 – Фрагмент создания таблиц в базе данных
+
+```
+CREATE TABLE public.book
+(
+  id_book serial NOT NULL,
+  name_book character varying(100),
+  path_file character varying(100),
+  PRIMARY KEY (id_book)
+);
+CREATE TABLE public."character"
+(
+  id_character serial NOT NULL,
+  name_character character varying(100),
+  descr text,
+  PRIMARY KEY (id_character)
+);
+CREATE TABLE public.book_character
+(
+  id_book_charact serial NOT NULL,
+  id_character integer NOT NULL,
+  id_book integer NOT NULL,
+  PRIMARY KEY (id_book_charact),
+  CONSTRAINT id_character FOREIGN KEY (id_character)
+  REFERENCES public."character" (id_character) MATCH SIMPLE
+  ON UPDATE NO ACTION
+  ON DELETE NO ACTION
+  NOT VALID,
+  CONSTRAINT id_book FOREIGN KEY (id_book)
+  REFERENCES public.book (id_book) MATCH SIMPLE
+  ON UPDATE NO ACTION
+  ON DELETE NO ACTION
+  NOT VALID
+);
+CREATE TABLE public.country
+(
+  id_country serial NOT NULL,
+  name_country character varying(50),
+  PRIMARY KEY (id_country)
+);
+```
+
+Таблицы country, last_name_country, place и last_name_place заполнются именами вручную.
+
+## 1.2.	Разработка алгоритма анализа текста
+Создается класс для анализа текста, в конструктор которого передается путь на загружаемые текст, а также класс содержит компоненты: предобученные эмбеддинги Natasha, которые загружаются в систему, и они передаются в конструкторы моделей (Листинг 2).
+
+Листинг 2 – инициализация класса AnalyzeText
+
+```
+class AnalyzeText:
+    segmenter = Segmenter()
+    morph_vocab = MorphVocab()
+
+    emb = NewsEmbedding()
+    morph_tagger = NewsMorphTagger(emb)
+    syntax_parser = NewsSyntaxParser(emb)
+    ner_tagger = NewsNERTagger(emb)
+    tokenizer=WordPunctTokenizer()
+    morph = pymorphy2.MorphAnalyzer()
+
+    def __init__ (self, file_path):
+        self.file_path = file_path
+```
+
+Перед анализом получаем материалы для анализа: сам текст, глаголы движения, хранящиеся в файле и все города и страны из базы данных.
+
+Листинг 3 – методы открытия файлов с материалами
+
+```
+def open_file_move(self):
+  move_words = []
+  path = Path(pathlib.Path.cwd(), 'analyzeBook', 'static', '2.txt')
+  with open(path, encoding='utf-8') as movement:
+    for line in movement:
+      move_words = line.split()
+  return move_words
+
+def open_file_book(self):
+  lst = []
+  text_lst = ""
+  with open(self.file_path , encoding='utf-8') as text_book:
+    for line in text_book:
+      line_text = line.strip()
+      if line_text != "":
+      lst.append(line_text)
+      text_lst += line_text + ' '
+  return text_lst
+```
+
+Первым этапом обработки текста является разделение текста на сегменты, токены, вызов методов анализа морфологии и синтаксиса, которые добавляют к токенам поля id, pos, feats, head_id, rel, а также метод определения именованных сущностей spans с аннотациями PER, LOC, ORG. Каждый токен лемматизируется, к spans добавляется поле с нормальной формой слова (словосочетания) (Листинг 4).
+
+Листинг 4 – Метод обработки текста средствами библиотеки Natasha
+```
+def process_text(self, text):
+  doc = Doc(text)
+  doc.segment(self.segmenter)
+  doc.tag_morph(self.morph_tagger)
+  doc.parse_syntax(self.syntax_parser)
+  doc.tag_ner(self.ner_tagger)
+  for span in doc.spans:
+      span.normalize(self.morph_vocab)
+  for token in doc.tokens:
+      token.lemmatize(self.morph_vocab)
+  return doc
+```
+
+Второй шаг – извлечение именованных сущностей из текста. spans по итогу обработки текста содержит список всех именованных сущностей с типами LOC, PER, ORG. Для алгоритма поиска маршрутов героев необходимы типы PER – имена, и LOC – места. Но в списке spans могут содержаться одни и те же названия, но в разных падежах, поэтому в функции morph_vocab.lemmatize, которая выбирает подходящую в морфологической выборке форму, для названий мест указывается часть речи ‘NOUN’, слово должно быть неодушевленным (‘Animacy’: ‘Inan’), в именительном падеже (‘Case’: ‘Nom’), а для имен часть речи ‘PROPN’, одушевленное(‘Animacy’: ‘Anim’),  и тоже в именительном падеже. В конце повторяющиеся названия, имена убираются множеством set (Листинг 5).
+
+Листинг 5 – метод получения уникальных имен и названий мест
+```
+def get_names_cities(self, doc):
+        loc_spans = []
+        per_spans = []
+        for span in doc.spans:
+            normal_word = span.normal.lower()
+            if span.type == 'LOC':
+                morph_country = self.morph_vocab.lemmatize(normal_word, 'NOUN', {'Animacy': 'Inan', 'Case': 'Nom'})
+                if morph_country.endswith(' гор'):
+                    morph_country += "ы"
+                loc_spans.append(morph_country)
+            if span.type == 'PER':
+                print('PER ', span.tokens)
+                tokens = span.tokens
+                flg = True
+                for token in tokens:
+                    if token.pos != 'PROPN':
+                        flg = False
+                    if ('Animacy' in token.feats) and ('Number' in token.feats):
+                        if token.feats['Animacy'] != 'Anim' and token.feats['Number'] != 'Sing':
+                            flg = False
+                if flg:     
+                    morph_country = self.morph_vocab.lemmatize(normal_word, 'PROPN', {'Animacy': 'Anim', 'Case': 'Nom'})          
+                    per_spans.append(morph_country)
+
+        loc_spans = list(set(loc_spans))
+        per_spans = list(set(per_spans))
+
+        return loc_spans, per_spans
+```
+
+Отдельно определены функции обработки получившихся имен и названий. 
+Распознавание в тексте именованных сущностей в библиотеке Natasha не идеально, и часто выдает ошибки в связи неправильной токенизации текста или определения слов, начинающихся с большой буквы, как имен. Поэтому необходима дополнительная функция обработки слов. Последовательность действий следующая:
+
+1.	Словосочетание разбивается на отдельные токены с помощью функции WordPunctTokenize из библиотеки nltk;
+2.	Получение из токена объектов типа Parse с информацией о том, как слово может быть разобрано (PyMorphy2);
+3.	Проверка каждого из них на наличие граммем ‘Surn’, ‘Name’, ‘Patr’. Если результат положителен, то токен заносится в словарь в нормальной форме вместе с его родом. Причиной взятия рода является то, что PyMorphy2 приводит слово в нормальный вид в мужском роде. К примеру, «Марья Дмитриевна» стала «Марья Дмитриевич». Поэтому после обработки слов при морфологическом синтезе род поможет привезти слова в словосочетании к одинаковой форме;
+4.	Проверка в словосочетании наличие ‘Surn’, ‘Name’, ‘Patr’ только в одном экземпляре, и в определенном порядке, которые встречаются в жизни: [‘Surn’, ‘Name’, ‘Patr’], [‘Surn’, ‘Name’], [‘Name’, ‘Surn’], [‘Name’, ’Patr’], [‘Name’, ‘Patr’, ‘Surn’]. Иначе токены будут разделены;
+5.	Слова итогового словаря соединяются и приводятся к необходимому роду.
+
+Фрагмент кода обработки имен приведен в Листинге 6.
+
+Листинг 6 – Фрагмент метода normalFormFIO
+```
+    def normalFormFIO(self, per_spans):
+
+        result_charact = []
+        for pers in per_spans:
+            list_key = []
+            tokens = self.tokenizer.tokenize(pers)
+            
+            for tkn in tokens:
+                p = self.morph.parse(tkn)
+                
+                cont_flag = False
+                tags_name = ['Surn', 'Name', 'Patr']
+                for pars in p:
+                    split_tags = (' '.join(str(pars.tag).split(','))).split(' ')
+                    tag = list(set(tags_name) & set(split_tags))
+                    if len(tag) != 0:
+                        list_key.append({'gend': pars.tag.gender, tag[0]: pars.normal_form})
+                        cont_flag = True
+
+                    if cont_flag:
+                        break
+```
+
+Итоговый список городов и стран, упомянутые в тексте, получается путем сравнивания списка, выведенного библиотекой Natasha, и имеющихся названий в базе данных (Листинг 7).
+
+Листинг 7 – Метод get_cities_text
+```
+def get_cities_text(self, name_countries, city_counties, loc_spans):
+        result_cities = []
+        for i in range(len(name_countries)):
+            list_cities = set(city_counties[i]) & set(loc_spans)
+            list_names = set(name_countries[i]) & set(loc_spans)
+            result_cities.extend(list(list_cities))
+            result_cities.extend(list(list_names))
+        return result_cities
+```
+
+Имена и города получены. Теперь связь между ними. В анализе предметной области выяснено, что можно вычленить связанные сущности из синтаксического анализа, создав группу словосочетаний, связанные между собой, которая часто встречаются в предложениях с необходимой для результата ВКР информацией. Создается отдельный класс SyntaxParse, конструктор которого принимает обработанное библиотекой Natasha предложение. 
+
+Метод phrases создает список с таким же количеством элементов, сколько токенов в переданном предложении, но в качестве элемента будет выступать уже не характеристика слова, а список из элементов, которые являются зависимыми от этого слова в предложении, т.е. head_id равен id слова. Этот метод также отвечает за проверку всех групп связей, начинающейся с обработки связей с большим количеством слов и по мере их убывания, пока не найдет вариант, удовлетворяющий методу (Листинг 8). 
+
+Листинг 8 – Фрагмент метода phrases
+```
+def phrases(self):
+          tokens = self.syntaxStructure
+
+          connect_words = []
+          for i in range(len(tokens)):
+               properties = [{"id": tokens[j].id, "rel": tokens[j].rel, "index": j} for j in range(len(tokens)) if tokens[j].head_id == tokens[i].id]
+               connect_words.append(properties)
+
+          phrases = self.rule_13(connect_words, "root", "obl", "case", "obl", "case", "conj", "nsubj", "appos", "flat:name") 
+          if not phrases:
+               phrases = self.rule_15(connect_words, "root", "nsubj", "appos", "conj", "conj", "obl", "amod", "case") 
+          if not phrases:
+               phrases = self.rule_16(connect_words, "root", "nsubj", "appos", "conj", "obl", "amod", "case")  
+          if not phrases:
+               phrases = self.rule_12(connect_words, "root", "iobj", "obl", "case", "conj", "obl", "case")   
+          if not phrases:
+               phrases = self.rule_14(connect_words, "root", "nsubj", "acl", "obl", "case", "obl", "nmod") 
+          if not phrases:
+               phrases = self.rule_5(connect_words, "root", "advcl", "obl", "case", "nsubj", "flat:name") 
+
+          …
+          return phrases
+```
+
+Методы класса rule_n проверяют собственные связи между словами в предложении и выдает результат в формате словаря с ключами ‘Name’ и ‘City’. Пример одного из методов представлен в Листинге 9.
+
+Листинг 9 – Фрагмент проверки предложения на наличие определенной группы связей между словами
+```
+# ["root", ["nsubj", "flat:name"], ["obl", "case"]]
+# ["root", ["nsubj", "nmod"], ["obl", "case"]]
+# ["root", ["nsubj", "appos"], ["obl", "case"]]
+def rule_1(self, connect_words, *rels):
+          phrases = []
+          tokens = self.syntaxStructure
+
+          for i in range(len(tokens)):
+               is_rule_1 = [False, False]
+               if tokens[i].rel == rels[0]:
+                    nameHero = []
+                    cityHero = []
+
+                    for property in connect_words[i]:
+                         if property['rel'] == rels[1]:
+                              nameHero.append(tokens[property["index"]])
+                              for nam in connect_words[property["index"]]:
+                                   if nam['rel'] == rels[2]:
+                                        nameHero.append(tokens[nam["index"]])  
+                                        nameHero = sorted(nameHero, key=lambda x: x.start)
+                                        is_rule_1[0] = True
+
+
+                         if property['rel'] == rels[3]:
+                              cityHero.append(tokens[property["index"]])
+                              for case in connect_words[property["index"]]:
+                                   if case['rel'] == rels[4]:
+                                        cityHero.append(tokens[case["index"]])  
+                                        cityHero = sorted(cityHero, key=lambda x: x.start)
+                                        is_rule_1[1] = True
+                    if all(is_rule_1):
+                         name_city = {"Name": nameHero, "City": cityHero}
+                         phrases.append(name_city)
+          return phrases
+```
+
+В итоге работы класса SyntaxParse выходит словарь, данные в котором потенциально могут являться именем персонажа и городом, где он был.
+
+Последним этапом в классе AnalyzeText остается получение маршрута. Человек в своей голове строит представление о книге по мере её прочтения. Алгоритм построен по такому же принципу. В маршруте важна последовательность городов, поэтому проверяется последовательно каждое предложение.
+
+Проверяется наличие в предложении глаголов движения в прошедшем времени, которые при этом не имеют перед собой частицы «не». В случае положительного результата происходит проверка связей в предложении (класс SyntaxParse). Полученный словарь обрабатывает фразы. Если в словаре с ключом «City» есть название, которое совпадает с элементом в списке ранее полученных городов, то продолжается проверка фразы с ключом «Name». В случае, если получено местоимение (он, она), то проверяются предыдущие предложения на наличие имен, которые последними упоминаются. 
+
+Маршрут получается путем присоединения городов к элементам с одним и тем же именем (Листинг 10).
+
+Листинг 10 – Метод get_routes
+```
+    def get_routes(self, doc, result_cities, move_words, normal_names):
+
+        not_norm_name = [names["not_normal_name"] for names in normal_names]
+        full_names = [names["full_name"] for names in normal_names]
+
+        sents = doc.sents
+        past_end_word = ['л', 'ла', 'ли', 'шел', 'лся', 'лись', 'лась', 'вшись', 'в', 'вшийся', 'ая']
+
+        routes_hero = []
+
+        for i in range(len(sents)):
+            snt = sents[i]
+            process = False
+
+            index = 0
+            for token in snt.tokens:
+                elem = any([token.text.endswith(ends) for ends in past_end_word])
+                for move in move_words:
+                    if (token.lemma == move) and elem:
+                        if index != 0:
+                            if snt.tokens[index - 1].text != 'не':
+                                process = True
+
+                if 'возвращение' in token.lemma or 'приезд' in token.lemma:
+                    process = True
+
+                index += 1
+
+            if 'в это время' in snt.text.lower() or 'в это же время' in snt.text.lower():
+                process = True
+
+            if process:
+                # print(snt.text)
+                tk = syntaxParse.SyntaxParse(snt.tokens)    
+                phrase = tk.phrases()
+                for phr in phrase:
+                    city = ' '.join([tkn.lemma for tkn in phr['City']])
+                    for res in result_cities:
+                        if res in city:
+                            nameFIO = phr['Name']
+                            nameFIO_join = ' '.join([token.lemma for token in nameFIO])
+                            pron = [token for token in nameFIO if token.pos == 'PRON']
+                            not_process_names = []
+
+                            if pron == []:
+
+                                for j in range(len(not_norm_name)):
+                                    if not_norm_name[j] in nameFIO_join:
+                                        not_process_names.append(full_names[j])
+
+                                if len(not_process_names) == 0:
+                                    list_name_full = self.normalFormFIO([' '.join([token.lemma for token in nameFIO])])
+                                    not_process_names = [names["full_name"] for names in list_name_full]
+
+                            else:
+                                if i != 0:
+                                    iter = 1
+                                    while len(not_process_names) == 0 and i - iter >= 0:
+                                        last_sent = ' '.join([token.lemma for token in sents[i-iter].tokens])
+                                        for ind in range(len(not_norm_name)):
+                                            if not_norm_name[ind] in last_sent:
+                                                not_process_names.append(full_names[ind])
+                                        iter += 1
+                                    
+                            if len(not_process_names) != 0:
+                                not_names = ['тит', 'зуб', 'ата', 'поль']
+                                for names in not_process_names:
+                                    if names not in not_names:
+                                        routes_hero.append({'Name': names, 'City': res})
+
+        routes = []
+        for route in routes_hero:
+            flag = True
+            for name_route in routes:
+                if name_route['Name'] == route['Name']:
+                    if name_route['Route'][len(name_route['Route']) - 1] != route['City']:
+                        name_route['Route'].append(route['City'])
+                    flag = False
+            if flag:
+                routes.append({'Name': route['Name'], 'Route': [route['City']]})     
+
+        return routes
+```
+
+Вызов всех действий по обработке текста прописаны в методе analyze класса SyntaxParse.
+
+## 1.3.	Маршрутизация на сервере
+Взаимодействие с данными из базы данных, и дальнейший их вывод на интерфейс осуществляется средствами Flask. Используется декоратор route для связки URL адреса с функцией, которая работает с запросами в базу данных. Из проектирования видно, что на интерфейс необходимо вывести данные о книгах, героях и географические данные маршрутов (Листинг 11).
+
+Листинг 11 – Функция для взаимодействия с базой данных
+```
+@app.route('/book_characters/<id>', methods=['GET'])
+def get_charact_book(id):
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute(f"""SELECT book_character.id_book_charact, character.name_character, book.name_book
+      FROM book_character 
+      JOIN book ON book.id_book = book_character.id_book 
+      JOIN character ON character.id_character = book_character.id_character
+      WHERE book.id_book = {id};""")
+    book_characters = cur.fetchall()
+    cur.close()
+    conn.close()
+    book_list = []
+    for book in book_characters:
+        book_list.append({
+            "id_book_charact": book[0],
+            "name_character": book[1],
+            "name_book": book[2]    
+        })
+    return {"book_characters": book_list}
+```
+
+Обработка файла также происходит на сервере. Передается путь к загруженному файлу, вызывается функция анализа текста. Городам, которые вывелись в итоге, присваиваются их координаты с помощью Nominatium. (Листинг 12) Результат заносится в базу данных.
+
+Листинг 12 – Функция fileUpload
+```
+@app.route('/upload', methods=['POST'])
+def fileUpload():
+    if request.method == 'POST':
+        userNameBook = request.values.get('filename')
+        file = request.files['file']
+        if file and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(file_path)
+            print("-----start -------")
+            routes = AnalyzeText(file_path).analyze()
+            print(routes)
+            
+            location1= []
+            for nm_ct in routes:
+                for city in nm_ct['Route']:
+                    try:
+                        geolocator = Nominatim(user_agent="http://localhost:3000/map")
+                        location = geolocator.geocode(city)
+                        location1.append({"city": city,"coords": list([location.latitude, location.longitude])})
+                    except:
+                        print("Error city", city)
+
+            coords = list({v["city"]:v for v in location1}.values())
+            print(coords)
+
+            add_route_entries(userNameBook, file_path, routes, coords)
+
+        return {'success': True}
+```
+
+## 1.4.	Разработка интерфейса
+### 1.4.1.	Страницы веб-приложения
+Веб-приложение состоит из нескольких страниц: страница с описанием, карта, а также 404 для случаев, если пользователь набрал неправильный url. Поэтому функция, с которой начинается программа, описывает маршрутизацию по приложению (Листинг 13).
+
+Листинг 13 – Функция App
+```
+const App = () => {
+  return(
+    <Router>
+      <Routes>
+        <Route path='/' element={<DescrPage/>}/>
+        <Route path='/map' element={<MapPage/>}/>
+        <Route path='*' element={<Page404/>}/>
+      </Routes>
+    </Router>
+  );
+}
+```
+
+В параметре element компонента Route прописывается страница веб-приложения, которая представляет собой компонент, возвращающий отрендерившуюся структуру страницы. В файлах DescrPage.scss и App.scss написаны css код, отвечающий за стиль страниц (Листинг 14).
+
+Листинг 14 – Фрагмент CSS-кода файла App.scss
+```
+  &__books{
+    flex: 1 0 auto;
+    position: relative;
+    ul {
+      height: 100%;
+      overflow: auto;
+      width: 100%;
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      left: 0;
+      &::-webkit-scrollbar {
+        width: 7px;
+        background: #cba78a;
+      }
+      &::-webkit-scrollbar-thumb {
+        background: #ac8a6d;
+      }
+    }
+  }
+```
+
+### 1.4.2.	Страница с картой
+Основной страницей приложения является MapPage, на которой происходит работа с текстом и картой. Она разбита на компоненты, отвечающие за header веб-приложения, на которой находится меню, за формы из меню, и отдельный компонент MapMenu с картой и взаимодействие с файлами художественных произведений.
+
+MapMenu создает пункты меню, которое отвечают за открытие компонентов BookDownload и ControlPanel(Листинг 15).
+
+Листинг 15 – return компонента MapMenu
+```
+<>
+    <div className="main__menu">
+        <ul className="main__menu__items">
+            <li onClick={() => openPanel(activeBooks, setActiveBooks, activeDown, setActiveDown)} className="menu__item" style={activeBooks === '' ? {'background' : '#ac8a6d'} : {'background' : 'none'}}>
+                <img src={book_icon} alt="Иконка книги" className="menu__item__book" />
+            </li>
+            <li onClick={() => openPanel(activeDown, setActiveDown, activeBooks, setActiveBooks)} className="menu__item" style={activeDown === '' ? {'background' : '#ac8a6d'} : {'background' : 'none'}}>
+                <img src={download_btn} alt="Иконка загрузки" className="menu__item__download" />
+            </li>
+        </ul>
+    </div>
+
+    <div className="main__map">
+        <BookDownload activeDown={activeDown} onUpdateFile={onUpdateFile}/>
+        <ControlPanel activeBooks={activeBooks} filePath={filePath}/>
+    </div>
+</>
+```
+
+### 1.4.3.	Панель для отправки файла на сервер
+Компонент BookDownload отвечает за панель интерфейса с загрузкой файла и отправки его на сервер. С помощью хука useState прописываются состояния компонента: drag – работа с областью загрузки файла с помощью drag-and-drop; nameFile – отображение названия загруженного файла; file – загруженный файл; nameBook – название книги, введенное пользователем; ready – проверка готовности загрузки файла на сервер, т.е. проверяется заполнено ли поле для названия книги и загружен ли файл; error – получение от сервера ошибки; loading – ожидание получения ответа от сервера (Листинг 16).
+
+Листинг 16 – состояния компонента BookDownload
+```
+const [drag, setDrag] = useState(false);
+const [nameFile, setNameFile] = useState("Максимум 10мб");
+const [file, setFile] = useState(null)
+const [nameBook, setNameBook] = useState('');
+const [ready, setReady] = useState(true);
+const [error, setError] = useState(false);
+const [loading, setLoading] = useState(false);
+```
+Так как в этом компоненте идет ожидание от сервера, структура возвращается в зависимости состояния loading. Если оно равно true, то на панель выводится спиннер и сообщение об начале обработки файла. Но первоначально же отображается на панели форма, которую пользователь должен заполнить. (Листинг 17). 
+
+Листинг 17 – Фрагмент возвращения компонента BookDownload
+```
+<div className="name-book">Новая книга</div>
+  {
+      loading ? 
+      <>
+          <Spinner/>
+          <span className="input-file__text">Анализ текста...</span>
+      </>
+      :
+      <form className="my-form" method="POST" onSubmit={handleSubmit}>
+          <label htmlFor="nameBook">Автор и название книги</label>
+          <input
+              id="nameBook"
+              type="text" 
+              placeholder='Л.Н. Толстой "Война и мир"' 
+              value={nameBook}
+              style={nameBook || ready ? {} : {border: '2px solid red'}}
+              onChange={onUpdateName}/>
+          <label className="input-file">
+              <label style={file || ready ? {} : {color: 'red'}} htmlFor="download">Выберите файл</label>
+              <input id="download" type="file" name="file" ref={inputEl} onChange={onChangeFile}/>
+              <span className="yellow-btn">Открыть</span>
+          </label>
+          ...
+      </form>
+  }
+```
+
+Если пользователь заполнил все поля формы и нажал кнопку «Начать анализ», начинает работать функция handleSubmit. При положительной проверке заполнения всех полей, выводится спиннер, и на сервер с использованием fetch посылается запрос с данными названия книги и файл. Результатом выдается сообщения или об успешном окончании анализа, или об ошибке. Состояния компонента приводятся к их изначальным значениям (Листинг 18).
+
+Листинг 18 – отправка запроса на сервер из компонента BookDownload
+```
+setLoading(loading => true);
+setReady(true);
+
+const data = new FormData();
+data.append('file', file);
+data.append('filename', nameBook);
+
+fetch('http://localhost:5000/upload', {
+    method: 'POST',
+    body: data,
+}).then((response) => {
+    if (response.ok){
+        response.json().then((body) => {
+            console.log("body ", body)
+        });
+        setNameBook('');
+        setNameFile("Анализ окончен");
+        setFile(null);
+        setLoading(loading => false);
+    } else {
+        throw Error('Не удалось провести анализ. Попробуйте позже')
+    }
+    props.onUpdateFile(file);
+}).catch((e) => {
+    setNameBook('');
+    setNameFile(String(e));
+    setError(true);
+    setFile(null);
+    setLoading(loading => false);
+});
+```
+
+Спиннер исчезает, и форма отображает снова для повторных загрузок.
+
+### 1.4.4.	Панель для получения данных из сервера
+Вторым компонентом, вызываемый в MapMenu, является ControlPanel, которые выводит названия всех произведений. Компонент рендерится, выводит спиннер, который говорит, что идет загрузка данных из сервера. После этого сразу вызывается хук useEffect, который посылает запрос на получение списка названий всех книг в базе данных. В случае положительного ответа данные записываются в переменную состояния bookList, иначе состояние ошибки error меняется на true. Спиннер скрывается. useEffect во время работы приложения отправляет повторный запрос на сервер в случае, если пользователь загрузил новый файл в форму компонента BookDownload (Листинг 19).
+
+Листинг 19 – получение названий книг из сервера в компоненте ControlPanel
+```
+    const routeService = new RouteService();
+    useEffect(() => {
+        fetchBooks();
+    }, [filePath])
+    const fetchBooks = () => {
+        routeService.getAllBooks()
+            .then(onBookListLoaded)
+            .catch(onError)
+    }
+    const onBookListLoaded = (newBookList) =>{
+        setBookList(newBookList);
+        setLoading(loading => false);
+    }
+    const onError = () => {
+        setError(true);
+        setLoading(loading => false);
+    }
+```
+
+На страницу выводится результат запроса. Проверяются состояния ошибки, загрузки и списка с данными (Листинг 20).
+
+Листинг 20 – рендер данных в компоненте ControlPanel
+```
+const errorMessage = error ? <ErrorMessage/> : null;
+const spinner = loading ? <Spinner/> : null;
+const content = !(loading || error) ? elements : null;
+    return (
+        <>
+            <div className={`control-panel ${activeBooks}`}>
+                <div className="control-panel__searchbooks">
+                    <div className="control-panel__search">
+                        <SearchPanel onUpdateSearch={onUpdateSearch}/>
+                    </div>
+                    <div className="control-panel__books">
+                        <ul>
+                            {errorMessage}
+                            {spinner}
+                            {content}
+                        </ul>
+                    </div>
+                </div>
+
+                <CharactersPanel dataItem={dataItem} idBook={idBook} onUpdateSelected={onUpdateSelected}/>
+            </div>
+
+            <MapRoutes selectedInput={selectedInput}/>
+        </>
+    )
+```
+
+Переменная content формирует структуру из списка полученных из сервера данных, каждый элемент которого проверяется на наличие подстроки, введенной в поле поиска компонента SearchPanel, который имеется в Листинге 20, что позволит пользователям найти нужное для него произведение.
+
+Компонент CharactersPanel, включенный в ControlPanel, отображает список имен после того, как пользователь выбрал одну книгу в списке переменной content. Состояние idBook компонента ControlPanel меняется при выборе книги. useEffect в CharactersPanel увидел это изменение и отправил запрос на получение имен, которые содержатся в книге с идентификатором idBook в базе данных. Персонажи выводятся в виде списка чекбоксов. Их можно выбирать один или несколько. Список выбранных имен влияет на другой компонент ControlPanel – MapRoutes.
+
+### 1.4.5.	Отображение карты и маршрутов на ней
+MapRoutes – компонент для отображения карты и маршрутов на ней. В этом случае используются компоненты React-Leaflet. MapContainer – компонент для отображения карты, ZoomControler – кнопки масштабирования, LeafletRuler – инструмент для измерения расстояния на карте, а также маркер для отображения местоположения браузера пользователя (Листинг 21).
+
+Листинг 21 – возвращение карты в компоненте MapRoutes
+```
+   return (
+        <>
+            <MapContainer className="map" center={position} zoom={6} zoomControl={false} ref={mapRef}>
+                <ZoomControl position='topright'/>
+                <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                />
+                {routes()}
+                {
+                    location.loaded && !location.error && (
+                        <Marker
+                            icon={markerIcon}
+                            position={[location.coords.lat, location.coords.lng]}
+                        ></Marker>
+                    )
+                }
+                <LeafletRuler/>
+            </MapContainer>
+
+            <div className="main__manage-map">
+                <button className="main__manage-map__btn" onClick={showMyLocation}>
+                    <img src={your_place} alt="Местоположение браузера" />
+                </button>
+            </div>
+        </>
+    )
+```
+
+Функция routes в листинге 21 получает данные о маршрутах выбранных героев в компоненте CharactersPanel, а точнее их упорядоченные координаты в виде массива, который передается в параметр компонента Polyline. Он отображает маршрут в виде ломанной линии, соединяющая координаты персонажа. Сами точки, города, отмечаются маркерами.
+
+В итоге при разработке интерфейса выходит результат, представленный на рисунке 20.
+
+![final map](md_img/map_final.png) 
+
+Рисунок 20 – вывод маршрута героя на карту
+
+## 1.5.	Вывод к разделу
+Была описана разработка основных функций и частей системы, таких как база данных, алгоритм анализа текста, маршрутизация на сервере приложения и интерфейс, при помощи словесного описания и фрагментов программного кода.
+
+
+
 
 ### Список используемых источников
 
