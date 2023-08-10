@@ -1,0 +1,370 @@
+@import '../../style/variables.scss';
+
+.principles{
+    min-height: 396px;
+    padding: 120px 0 120px 0;
+    background: $main-color;
+    &__wrapper{
+        display: flex;
+        justify-content: space-between;
+    }
+    &__content{
+        max-width: 512px;
+        &__header{
+            font-size: 30px;
+            margin-bottom: 18px;
+        }
+    }
+}
+
+.promo {
+    min-height: 515px;
+    padding: 25px 0 250px 0;
+    background: $second-color;
+    &__header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    &__menu {
+        display: flex;
+        justify-content: space-between;
+        list-style-type: none;
+        padding: 0;
+        &__item {
+            &:not(:first-child){
+                margin-left: 47px;
+            }
+        }
+        &__link{
+            font-size: 20px;
+            text-decoration: none;
+        }
+    }
+    &__wrapper{
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 210px; 
+    }
+    &__start {
+        display: flex;
+        flex-direction: column;
+        width: 630px;
+        &__title{
+            font-size: 60px;
+            margin-bottom: 48px;
+        }
+        &__subtitle{
+            font-weight: 800;
+            font-size: 20px;
+            line-height: 24px;
+            color: $main-color;
+        }
+    }
+}
+
+
+.description{
+    min-height: 396px;
+    padding: 154px 0 88px 0;
+    background: $main-color;
+    &__wrapper{
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    &__header{
+        font-size: 30px;
+            margin-bottom: 18px;
+    }
+    &__text{
+        max-width: 512px;
+    }
+}
+
+.participants{
+    padding: 120px 0 120px 0;
+    background: $second-color;
+    &__title{
+        margin-bottom: 29px;
+        text-align: center;
+        font-size: 30px;
+    }
+    &__list{
+        display: flex;
+        justify-content: space-between;
+    }
+    &__item{
+        display: flex;
+        flex-direction: column;
+        text-align: center;
+        color: #EFCAAD;
+        max-width: 197px;
+        &__image{
+            margin-bottom: 22px;
+            max-height: 280px;
+            max-width: 197px;
+        }
+        &__fullname{
+            margin-bottom: 22px;
+            font-weight: 500;
+            font-size: 20px;
+            line-height: 24px;
+        }
+        &__specialization{
+            font-style: italic;
+            font-weight: 400;
+            font-size: 20px;
+        }
+    }
+}
+
+.transition{
+    padding: 74px 0 74px 0;
+    background: $main-color;
+    .container{
+        display: flex;
+        justify-content: center;
+    }
+}
+
+.footer{
+    padding: 57px 0 57px 0;
+    background: $second-color;
+    &__wrapper{
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    &__years{
+        font-weight: 800;
+        font-size: 20px;
+        line-height: 24px;
+        color: #EFCAAD;
+    }
+}
+
+@media (max-width: 1200px){
+    .container{
+        max-width: 960px;
+    }
+}
+
+@media (max-width: 992px) {
+    .container {
+        max-width: 720px;
+    }
+    .promo {
+        &__menu {
+            &__link{
+                font-size: 18px;
+            }
+        }
+        &__start {
+            width: 495px;
+            &__title{
+                font-size: 50px;
+            }
+            &__subtitle{
+                font-size: 18px;
+            }
+        }
+    }
+
+    .transition-btn{
+        width: 205px;
+        font-size: 18px;
+    }
+
+    .text-view{
+        font-size: 18px;
+    }
+
+    .description{
+        padding: 130px 0 70px 0;
+        &__wrapper{
+            flex-direction: column;
+        }
+        &__block{
+            margin-top: 44px;
+        }
+        &__header{
+            font-size: 26px;
+            text-align: center;
+        }
+    }
+
+    .principles{
+        padding: 100px 0 100px 0;
+        &__wrapper{
+            flex-direction: column;
+            align-items: center;
+        }
+        &__content{
+            margin-bottom: 44px;
+            &__header{
+                font-size: 26px;
+                text-align: center;
+            }
+        }
+    }
+
+    .participants{
+        &__title{
+            font-size: 26px;
+        }
+        &__list{
+            flex-direction: column;
+            align-items: center;
+        }
+        &__item{
+            flex-direction:row;
+            text-align: start;
+            max-width: none;
+            margin-bottom: 50px;
+            &__data{
+                width: 250px;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+            }
+            &__image{
+                margin-bottom: 0px;
+                margin-right: 20px;
+            }
+            &__fullname{
+                font-size: 18px;
+            }
+            &__specialization{
+                font-size: 18px;
+            }
+        }
+    }
+    .footer{
+        &__years{
+            font-size: 18px;
+        }
+    }
+}
+
+@media (max-width: 768px) {
+    .container{
+        width: 90%;
+    }
+
+    .promo {
+        padding: 25px 0 160px 0;
+        &__menu {
+            display: none;
+        }
+        &__wrapper{
+            flex-direction: column;
+            margin-top: 155px; 
+        }
+        &__start {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            max-width: 290px;
+            text-align: center;
+            margin-bottom: 40px;
+            &__title{
+                font-size: 40px;
+                margin-bottom: 30px;
+            }
+            &__subtitle{
+                font-size: 16px;
+            }
+        }
+    }
+
+    .transition-btn{
+        width: 177px;
+        height: 38px;
+        font-size: 16px;
+    }
+
+    .text-view{
+        font-size: 16px;
+    }
+
+    .description{
+        padding: 85px 0 66px 0;
+        &__header{
+            font-size: 20px;
+            margin-bottom: 44px;
+        }
+        &__image{
+            object-fit: cover;
+            width: 100%;
+        }
+        &__text{
+            max-width: 512px;
+        }
+    }
+
+    .principles{
+        padding: 39px 0 100px 0;
+        &__wrapper{
+            display: flex;
+            justify-content: space-between;
+        }
+        &__content{
+            max-width: 512px;
+            &__header{
+                font-size: 20px;
+                margin-bottom: 44px;
+            }
+        }
+        &__image{
+            object-fit: cover;
+            width: 100%;
+        }
+    }
+
+    .participants{
+        padding: 60px 0 60px 0;
+        &__title{
+            margin-bottom: 33px;
+            font-size: 20px;
+        }
+        &__item{
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            margin-bottom: 50px;
+            &__data{
+                width: 250px;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+            }
+            &__image{
+                margin-bottom: 20px;
+                margin-right: 0px;
+            }
+            &__fullname{
+                font-size: 16px;
+            }
+            &__specialization{
+                font-size: 16px;
+            }
+        }
+    }
+    .header{
+        &__logo{
+            img{
+                width: 96px;
+            }
+        }
+    }
+    .footer{
+        padding: 34px 0 26px 0;
+        &__years{
+            font-size: 16px;
+            margin-top: -11px;
+        }
+    }
+    
+}

@@ -1,0 +1,100 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;400;600;700;800&display=swap');
+@import './variables.scss';
+
+* {
+    font-family: 'Inter', sans-serif;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+ul,
+li,
+dl {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    margin: 0;
+}
+
+a {
+    text-decoration: none;
+    color: inherit;
+    display: inline-block;
+    &:hover {
+        text-decoration: none;
+        color: inherit;
+    }
+}
+
+p {
+    margin: 0;
+    padding: 0;
+}
+
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0; 
+}
+
+.yellow-btn{
+    position: relative;
+    display: inline-block;
+    cursor: pointer;
+    font-size: 15px;
+    color: rgb(255 255 255);
+    text-align: center;
+    border-radius: 5px;
+    background-color: #F88F01;
+    line-height: 10px;
+    height: 32px;
+    padding: 10px 20px;
+    border: 1px solid black;
+    box-shadow: 0px 4px 4px rgb(0 0 0 / 25%);
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.yellow-font {
+    font-weight: 800;
+    color: $orange-color;
+    text-shadow: 1px 0px 1px #000, 
+    0 4px 4px rgb(0 0 0 / 50%), 
+    2px 0 1px #000, 0 1px 1px #000;
+}
+
+.transition-btn{
+    box-sizing: border-box;
+    width: 255px;
+    height: 50px;
+    background: $transition-color;
+    border: 1px solid #000000;
+    box-shadow: 0px 4px 4px rgba(0, 0, 0, 0.25);
+    border-radius: 10px;
+    cursor: pointer;
+    &:active{
+        background: #2E6C24;
+    }
+    font-weight: 800;
+    font-size: 20px;
+    color: #FFFFFF;
+}
+
+.text-view{
+    font-weight: 400;
+    font-size: 20px;
+    line-height: 24px;
+    color: #000000;
+}

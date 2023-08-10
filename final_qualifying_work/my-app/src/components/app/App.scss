@@ -1,0 +1,461 @@
+@import url("~leaflet/dist/leaflet.css");
+.leaflet-container{
+  width: 100%;
+  height: 91vh;
+}
+.leaflet-touch .leaflet-bar a {
+  width: 35px;
+  height: 35px;
+}
+
+.header {
+  height: 85px;
+  background: #6B4B2E;
+  border-bottom: 2px solid black;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0px 30px;
+  position: relative;
+
+  &__logo{
+    margin-top: 15px;
+  }
+
+  &__menu{
+    &__icon img {
+      width: 25px;
+    }
+    &__list {
+      position: absolute;
+      background: #EFCAAD;
+      z-index: 1004;
+      top: 95px;
+      right: 60px;
+      padding: 5px;
+      border-radius: 7px;
+      border: 1px solid black;
+      box-shadow: 0px 4px 4px rgb(0 0 0 / 25%);
+    }
+    &__item {
+      display: flex;
+      padding: 5px;
+      align-items: center;
+      font-size: 15px;
+      cursor: pointer;
+      a {
+        display: flex;
+        align-items: center;
+      }
+    }
+    &__img {
+      width: 29px;
+      display: flex;
+      justify-content: center;
+      margin-right: 10px;
+    }
+  }
+}
+
+.main{
+  display: flex;
+  height: 100%;
+  position: relative;
+  &__menu{
+    width: 48px;
+    background: #6B4B2E;
+    border-right: 2px solid black;
+  }
+  &__map{
+    width: 100%;
+    position: relative;
+  }
+  &__manage-map{
+    position: absolute;
+    z-index: 500;
+    top: 16%;
+    right: 11px;
+    display: flex;
+    flex-direction: column;
+    &__btn {
+      width: 38px;
+      height: 38px;
+      margin-bottom: 15px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: white;
+      border: 2px solid rgba(0, 0, 0, 0.2);
+      background-clip: padding-box;
+      border-radius: 5px;
+      img {
+        width: 25px;
+      }
+    }
+  }
+}
+
+.menu__item {
+  height: 57px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-bottom: 1px solid black;
+}
+
+.control-panel{
+  position: absolute;
+  z-index: 450;
+  height: 100%;
+  display: flex;
+  &__searchbooks{
+    height: 100%;
+    width: 278px;
+    background: #EFCAAD;
+    border-right: 2px solid black;
+    display: flex;
+    flex-direction: column;
+  }
+  &__search{
+    width: 100%;
+    height: 57px;
+    padding: 8px 11px;
+    border-bottom: 1px solid black;
+    flex: 0 0 auto;
+    &__container{
+      width: 100%;
+      height: 100%;
+      position: relative;
+      input {
+        width: 100%;
+        height: 100%;
+        border: 1px solid black;
+        border-radius: 11px;
+        outline: none;
+        padding: 0 35px 0 15px;
+        font-size: 15px;
+        &::placeholder{
+          font-weight: 100;
+        }
+      }
+    }
+    &__button {
+      position: absolute;
+      top: 9px;
+      right: 10px;
+    }
+  }
+  &__characters{
+    width: 278px;
+    position: relative;
+    border-right: 2px solid black;
+    padding: 30px 24px;
+    display: flex;
+    flex-direction: column;
+    &::before {
+      background: #EFCAAD;
+      content: '';
+      position: absolute;
+      top: 0px;
+      right: 0px;
+      bottom: 0px;
+      left: 0px;
+      opacity: 0.8;
+    }
+    &__item{
+      position: relative;
+      flex: 1 0 auto;
+      height: 90%;
+      fieldset {
+        border: none;
+        height: 100%;
+        overflow: auto;
+        width: 100%;
+        position: absolute;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        &::-webkit-scrollbar {
+          width: 7px;
+          background: #cba78a;
+        }
+        &::-webkit-scrollbar-thumb {
+          background: #ac8a6d;
+        }
+        div, legend {
+          margin-bottom: 22px;
+        }
+        div {
+          display: flex;
+          align-items: center;
+        }
+      }
+    }
+  }
+  &__books{
+    flex: 1 0 auto;
+    position: relative;
+    ul {
+      height: 100%;
+      overflow: auto;
+      width: 100%;
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      left: 0;
+      &::-webkit-scrollbar {
+        width: 7px;
+        background: #cba78a;
+      }
+      &::-webkit-scrollbar-thumb {
+        background: #ac8a6d;
+      }
+    }
+  }
+  &__book{
+    min-height: 64px;
+    font-weight: 400;
+    font-size: 15px;
+    line-height: 18px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    &:hover{
+      background: #ac8a6d;
+    }
+  }
+  &__line{
+    padding: 0;
+    height: 0;
+    border: none;
+    border-top: 1px solid #6B4B2D;
+    width: 206px;
+    margin: 0 auto;
+  }
+}
+
+.name-book {
+  position: relative;
+  font-weight: 700;
+  font-size: 25px;
+  line-height: 30px;
+  text-align: center;
+  margin-bottom: 17px;
+}
+
+.checkbox-hero {
+  margin-right: 10px;
+  height: 16px;
+  width: 16px;
+  flex-shrink: 0;
+}
+
+.hide {
+  display: none!important;;
+}
+
+.my-form{
+  display: flex;
+  flex-direction: column;
+  #nameBook{
+    width: 100%;
+    height: 35px;
+    border: 1px solid black;
+    border-radius: 11px;
+    outline: none;
+    padding: 0 15px 0 15px;
+    font-size: 15px;
+    margin: 10px 0 20px;
+  }
+  .green-btn{
+    background: #2E6C34;
+    margin: 0 auto;
+  }
+}
+
+.download-panel {
+  position: absolute;
+  z-index: 450;
+  height: 100%;
+  width: 278px;
+  background: #EFCAAD;
+  border-right: 2px solid black;
+  display: flex;
+  flex-direction: column;
+  padding: 19px 16px;
+}
+
+#drop-zone{
+  margin-top: 2px;
+  width: 100%;
+  height: 330px;
+  border: 2px black dashed;
+  border-radius: 7px;
+  font-weight: 400;
+  font-size: 15px;  
+  line-height: 18px;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  margin-bottom: 20px;
+  padding: 0px 22px;
+}
+
+.input-file{
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  &__btn{
+    position: relative;
+    display: inline-block;
+    cursor: pointer;
+    font-size: 15px;
+    color: rgb(255 255 255);
+    text-align: center;
+    border-radius: 5px;
+    background-color: #F88F01;
+    line-height: 10px;
+    height: 32px;
+    padding: 10px 20px;
+    border: 1px solid black;
+    box-shadow: 0px 4px 4px rgb(0 0 0 / 25%);
+  }
+  &__text{
+    display: inline-block;
+    font-size: 15px;
+    text-align: center;
+    width: 100%;
+    margin-bottom: 20px;
+  }
+  input[type=file] {
+    position: absolute;
+    z-index: -1;
+    opacity: 0;
+    display: block;
+    width: 0;
+    height: 0;
+  }
+}
+
+.modal-win{
+  z-index: 5000;
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  background-color: rgba(107, 75, 46, 0.5);
+  &__cont{
+    position: relative;
+    left: 50%;
+    top: 42%;
+    transform: translate(-50%, -50%);
+    background: #6B4B2E;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  &__title{
+    font-size: 20px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    // height: 100%;
+    text-align: center;
+  }
+}
+
+.form-error{
+  &__container{
+    height: 335px;
+    width: 420px;
+    padding: 23px 56px;
+  }
+  &__form{
+    width: 100%;
+    height: 100%;
+    &__input input, textarea {
+      width: 100%;
+      margin-bottom: 20px;
+      height: 31px;
+      border-radius: 5px;
+      outline: none;
+      border: none;
+      padding: 7px 27px;
+    }
+    textarea {
+      height: 92px;
+      width: 307px;
+      resize: none;
+    }
+    &__button{
+      display: flex;
+      justify-content: center;
+      margin-top: -3px;
+    }
+  }
+}
+
+.back-info{
+  &__container{
+    width: 522px;
+    height: 407px;
+    padding: 23px 30px;
+  }
+  &__text{
+    background: #EFCAAD;
+    border-radius: 5px;
+    width: 100%;
+    height: 100%;
+    font-weight: 400;
+    font-size: 15px;
+    line-height: 18px;
+    position: relative;
+    &__scroll{
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      left: 0;
+      overflow: auto;
+      padding: 13px;
+      &::-webkit-scrollbar {
+        width: 7px;
+        background: #cba78a;
+        border-end-end-radius: 5px;
+        border-start-end-radius: 5px;
+      }
+      &::-webkit-scrollbar-thumb {
+        background: #ac8a6d;
+      }
+    }
+  }
+}
+
+.close {
+  position: absolute;
+  top: 4%;
+  right: 4%;
+  width: 22px;
+  height: 22px;
+  cursor: pointer;
+  &::before, &::after {
+    content: "";
+    position: absolute;
+    width: 20px;
+    height: 3px;
+    background: #F88F01;
+    top: 44%;
+    right: 4%;
+}
+  &::after {
+    transform: rotate(-45deg);
+  }
+  &::before {
+    transform: rotate(45deg);
+  }
+}
+
+
